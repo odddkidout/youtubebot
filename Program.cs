@@ -1,6 +1,7 @@
 ﻿using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System;
+using System.Collections.Specialized;
 using System.Drawing;
 using Console = Colorful.Console;
 using System.IO;
@@ -9,9 +10,21 @@ using System.Collections.Generic;
 using OpenQA.Selenium.Support.UI;
 using System.Threading;
 using Amib.Threading;
+using System.Net;
+using System.Linq;
+using System.Net.Security;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 namespace maincore
 {
     [Serializable]
+    class user
+    {
+        public string username { get; set; }
+        public string password { get; set; }
+        public string email { get; set; }
+        public string token { get; set; }
+    }
     class Accounts
     {
         public string Emailid { get; set; }
@@ -81,6 +94,8 @@ namespace maincore
     }
     class MainClass
     {
+        static bool isAuthenticated = false;
+        public static string version = "1.0";
         public static int streams = 0;
         static DateTime start;
         public static Configuration currentConfig;
@@ -104,11 +119,44 @@ namespace maincore
                     return new String(stringChars);
                 }
             }
-            
+
         }
         static void Main()
         {
-            
+            if (!isAuthenticated)
+            {
+                logo();
+                new Authentication();
+                Console.WriteLine("Welcome to the best youtube bot!\n1.Login");
+                int tempauth = Convert.ToInt32(Console.ReadLine());
+                if (tempauth == 1)
+                {
+                    logo();
+                    Console.WriteLine("Enter Username");
+                    string username = Console.ReadLine();
+                    Console.WriteLine("Enter Password");
+                    string password = Console.ReadLine();
+                    bool auth = Authentication.Login(username, password);
+                    if (!auth)
+                    {
+                        isAuthenticated = false;
+                        Main();
+                    }
+                    else if (auth)
+                    {
+                        Console.WriteLine("Authenticated");
+                        isAuthenticated = true;
+                        Main();
+                    }
+                    
+                }
+                else
+                {
+                    Console.WriteLine("invalid Input");
+                    Console.ReadLine();
+                    Main();
+                }
+            }
             logo();
             System.Console.Write("\n");
             System.Console.WriteLine("1 => Load config/start bot");
@@ -199,7 +247,7 @@ namespace maincore
                 Console.Clear();
                 Main();
             }
-            
+
             while (true)
             {
                 logo();
@@ -208,7 +256,7 @@ namespace maincore
                 Console.WriteLine($"streams Completed : {streams} ");
                 Console.WriteLine($"threads : {activeThreadsCount()}/{smartThreadPool.ActiveThreads} ");
                 Console.WriteLine($"Threads Capped at : {currentConfig.maxThreads} ");
-                Console.WriteLine($"Streams in 24 hours : {(streams/diff.TotalSeconds)*3600*24} ");
+                Console.WriteLine($"Streams in 24 hours : {(streams / diff.TotalSeconds) * 3600 * 24} ");
                 Thread.Sleep(1000);
 
             }
@@ -230,9 +278,9 @@ namespace maincore
             {
                 using (var tw = new StreamWriter(path, true))
                 {
-                    tw.WriteLine(ex+"\n\n");
+                    tw.WriteLine(ex + "\n\n");
                 }
-                
+
             }
             finally
             {
@@ -240,9 +288,9 @@ namespace maincore
             }
 
         }
-        public static void Threadlogger(string Threadid,String update)
+        public static void Threadlogger(string Threadid, String update)
         {
-            
+
             string path = Path.Combine(currentPath, "logs");
             if (!Directory.Exists(path))
             {
@@ -255,11 +303,11 @@ namespace maincore
                 {
                     tw.WriteLine(update);
                 }
-                
+
             }
             catch (Exception ex)
             {
-                errorlogger(ex, true);  
+                errorlogger(ex, true);
             }
 
         }
@@ -325,7 +373,7 @@ namespace maincore
         }
         static void threadManager()
         {
-            
+
             while (true)
             {
                 try
@@ -653,7 +701,7 @@ namespace maincore
                         }
                         catch (Exception ex)
                         {
-                            errorlogger( ex, true);
+                            errorlogger(ex, true);
                         }
                         System.Console.WriteLine("Enter Keyword play percent( Train video on keywords)");
                         try
@@ -683,7 +731,7 @@ namespace maincore
                         }
                         catch (Exception ex)
                         {
-                            errorlogger( ex, true);
+                            errorlogger(ex, true);
                         }
                         System.Console.WriteLine("Enter Google Search Play Percent");
                         try
@@ -728,7 +776,7 @@ namespace maincore
                         }
                         catch (Exception ex)
                         {
-                            errorlogger( ex, true);
+                            errorlogger(ex, true);
                         }
                         System.Console.WriteLine("Enter Trending Page Play Percent");
                         try
@@ -743,7 +791,7 @@ namespace maincore
                         }
                         catch (Exception ex)
                         {
-                            errorlogger( ex, true);
+                            errorlogger(ex, true);
                         }
                         System.Console.WriteLine("Enter Gaming Page Play Percent");
                         try
@@ -779,7 +827,7 @@ namespace maincore
                     }
                     catch (Exception ex)
                     {
-                        errorlogger( ex, true);
+                        errorlogger(ex, true);
                     }
                 }
             }
@@ -1903,11 +1951,187 @@ begin in 1")
             List<cookie> cookies = JsonConvert.DeserializeObject<List<cookie>>(fileStream);
             for (int i = 0; i < cookies.Count; i++)
             {
-                driver.Manage().Cookies.AddCookie(new Cookie(cookies[i].name, cookies[i].value));
+                driver.Manage().Cookies.AddCookie(new OpenQA.Selenium.Cookie(cookies[i].name, cookies[i].value));
             }
             driver.Navigate().Refresh();
         }
 
+
+    }
+    class Authentication
+    {
+        public static int RandomNumber()
+        {
+            var rnd = new Random(DateTime.Now.Millisecond);
+            int pik = rnd.Next(10, 50);
+            return pik;
+        }
+        public static string HashKeys(int length)
+        {
+            Random rnd = new Random();
+            const string chars = "123456789";
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[rnd.Next(s.Length)]).ToArray());
+        }
+        public Authentication()
+        {
+            Authenticationhelper.OpenEncryption();
+            using (var client = new WebClient())
+            {
+                try
+                {
+                    client.Proxy = null;
+                    HttpWebRequest.DefaultWebProxy = new WebProxy();
+                    client.Headers["User-Agent"] = "AuthGG";
+                    var values = new NameValueCollection();
+                    int iblis = RandomNumber();
+                    string optimization = HashKeys(iblis);
+                    string mainfollowing = "293162872263434855" + optimization;
+                    values["type"] = "start";
+                    values["aid"] = "547962";
+                    values["secret"] = "RMmBefxxUFMnHUedChMXObYBPc6LGZmX8Ec";
+                    values["random"] = iblis.ToString();
+                    values["apikey"] = mainfollowing;
+                    var response = client.UploadValues("https://api.auth.gg/version2/api.php", values);
+                    var resp = System.Text.Encoding.Default.GetString(response);
+                    dynamic json = JsonConvert.DeserializeObject(resp);
+                    if ((string)json.Status == "Failed")
+                    {
+                        Console.WriteLine("API key error!");
+                        Console.ReadLine();
+                        System.Diagnostics.Process.GetCurrentProcess().Kill();
+                    }
+                    if ((string)json.hashed != Settings.PremiumAPIKey)
+                    {
+                        Console.WriteLine($"Security error, application has been breacheddd!{(string)json.APIKey}");
+                        Console.ReadLine();
+                        System.Diagnostics.Process.GetCurrentProcess().Kill();
+                    }
+                    if ((string)json.Status == "Disabled")
+                    {
+                        Console.WriteLine("The Application is currently not available!");
+                        Console.ReadLine();
+                        System.Diagnostics.Process.GetCurrentProcess().Kill();
+                    }
+                    if ((string)json.DeveloperMode == "Disabled")
+                    {
+                        if ((string)json.Version != MainClass.version)
+                        {
+                            Console.WriteLine($"Update [{MainClass.version}] is available!");
+                            Console.ReadLine();
+                            System.Diagnostics.Process.GetCurrentProcess().Kill();
+                        }
+
+                    }
+                    else
+                    {
+
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Something went wrong!" + ex.ToString());
+
+                    Console.ReadLine();
+                }
+            }
+            Authenticationhelper.CloseEncryption();
+        }
+
+        public static bool Login(string username, string password)
+        {
+            using (var client = new WebClient())
+            {
+                try
+                {
+                    Authenticationhelper.OpenEncryption();
+                    client.Proxy = null;
+                    HttpWebRequest.DefaultWebProxy = new WebProxy();
+                    client.Headers["User-Agent"] = "AuthGG";
+                    var values = new NameValueCollection();
+                    int iblis = RandomNumber();
+                    string optimization = HashKeys(iblis);
+                    string mainfollowing = Settings.PremiumAPIKey + optimization;
+                    values["type"] = "login";
+                    values["username"] = username;
+                    values["password"] = password;
+                    values["hwid"] = Settings.HWID();
+                    values["aid"] = Settings.AID;
+                    values["secret"] = Settings.Secret;
+                    values["time"] = Settings.Time();
+                    values["random"] = iblis.ToString();
+                    values["apikey"] = mainfollowing;
+                    var response = client.UploadValues("https://api.auth.gg/version2/api.php", values);
+                    var resp = System.Text.Encoding.Default.GetString(response);
+                    dynamic json = JsonConvert.DeserializeObject(resp);
+                    Authenticationhelper.CloseEncryption();
+                    if ((string)json.status == "Failed")
+                    {
+                        Console.WriteLine("API key error!");
+                        Console.ReadLine();
+                        System.Diagnostics.Process.GetCurrentProcess().Kill();
+                    }
+                    if ((string)json.hashed != Settings.PremiumAPIKey)
+                    {
+                        Console.WriteLine("Security error, application has been breached!");
+                        Console.ReadLine();
+                        System.Diagnostics.Process.GetCurrentProcess().Kill();
+                    }
+                    switch ((string)json.result)
+                    {
+                        case "success":
+                            Console.WriteLine($"Welcome back, {username}!");
+                            return true;
+                        case "invalid_details":
+                            Console.WriteLine("Please check your credentials!");
+                            Console.ReadLine();
+                            return false;
+                        case "invalid_hwid":
+                            Console.WriteLine("Invalid HWID, please do not attempt to share accounts!");
+                            Console.ReadLine();
+                            return false;
+                        case "hwid_updated":
+                            Console.WriteLine("Your HWID has been updated, restart Client!");
+                            Console.ReadLine();
+                            return false;
+                        case "time_expired":
+                            Console.WriteLine("Your subscription has expired!");
+                            Console.ReadLine();
+                            return false;
+                        case "net_error":
+                            Console.WriteLine("Something went wrong!");
+                            Console.ReadLine();
+                            return false;
+                        default:
+                            Console.WriteLine("Something went wrong!");
+                            Console.ReadLine();
+                            return false;
+                    }
+                }
+                catch
+                {
+                    Console.WriteLine("Something went wrong!");
+                    Console.ReadLine();
+                    return false;
+                }
+            }
+        }
+        internal class Authenticationhelper
+        {
+            public static void OpenEncryption()
+            {
+                ServicePointManager.ServerCertificateValidationCallback += PinPublicKey;
+            }
+            public static void CloseEncryption()
+            {
+                ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+            }
+            private static bool PinPublicKey(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+            {
+                return certificate != null && certificate.GetPublicKeyString() == _key;
+            }
+            private const string _key = "04E32E295F50051CD5A5AF5B9B19DFAAB514806DDDEEAEBB38AFCC8AB7D9F1BE5C8E7A782E377DC198E62A1D091A2ADD63F4AC0A320BC4341AD980E34B47C08DB6";
+        }
 
     }
 }
