@@ -287,8 +287,34 @@ namespace maincore
                 errorMutex.ReleaseMutex();
             }
 
+        }public static void errorlogg(Exception ex, bool console)
+        {
+            string path = Path.Combine(currentPath, "error.txt");
+            if (console)
+            {
+                Console.Clear();
+                Console.BackgroundColor = Color.Blue;
+                Console.ForegroundColor = Color.Red;
+                Console.WriteLine(ex);
+                Console.WriteLine("\tERROR\n\nCheck errors.txt");
+                Console.ResetColor();
+            }
+            errorMutex.WaitOne();
+            try
+            {
+                using (var tw = new StreamWriter(path, true))
+                {
+                    tw.WriteLine(ex + "\n\n");
+                }
+
+            }
+            finally
+            {
+                errorMutex.ReleaseMutex();
+            }
+
         }
-        public static void Threadlogger(string Threadid, String update)
+        public static async void Threadlogger(string Threadid, String update)
         {
 
             string path = Path.Combine(currentPath, "logs");
@@ -1051,10 +1077,21 @@ namespace maincore
                 IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
                 string title = (string)js.ExecuteScript("Object.defineProperty(navigator, 'webdriver', {get: () => false})");
             }
+            catch (OpenQA.Selenium.WebDriverException ex)
+            {
+                if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                {
+                    return;
+                }
+                else
+                {
+                    MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                }
+            }
             catch (Exception ex)
             {
                 MainClass.Threadlogger(threadId, ex.ToString());
-                MainClass.errorlogger(ex, true);
+                MainClass.errorlogg(ex, true);
 
             }
             if (MainClass.currentConfig.useProxy == 1)
@@ -1079,9 +1116,31 @@ namespace maincore
                             MainClass.Threadlogger(threadId, "user pass authenticated");
                             break;
                         }
+                        catch (OpenQA.Selenium.NoSuchWindowException ex)
+                        {
+                            if (ex.Message.ToLowerInvariant().Contains("no such window: target window already closed"))
+                            {
+                                return;
+                            }
+                            else
+                            {
+                                MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                            }
+                        }
+                        catch (OpenQA.Selenium.WebDriverException ex)
+                        {
+                            if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                            {
+                                return;
+                            }
+                            else
+                            {
+                                MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                            }
+                        }
                         catch (Exception ex)
                         {
-                            MainClass.errorlogger(ex, true);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                             continue;
                         }
                     }
@@ -1093,10 +1152,20 @@ namespace maincore
                 driver.Navigate().GoToUrl("https://www.youtube.com");
                 Thread.Sleep(rnd.Next(2000, 5000));
             }
+            catch (OpenQA.Selenium.WebDriverException ex)
+            {
+                if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                {
+                    return;
+                }
+                else
+                {
+                    MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                }
+            }
             catch (Exception ex)
             {
-                MainClass.errorlogger(ex, true);
-
+                MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
             }
 
             if (!(driver.Url == "https://www.youtube.com/"))
@@ -1125,10 +1194,21 @@ namespace maincore
                     agree.Click();
                     MainClass.Threadlogger(threadId, "Agree button clicked");
                 }
+                catch (OpenQA.Selenium.WebDriverException ex)
+                {
+                    if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                    }
+                }
                 catch (Exception ex)
                 {
                     MainClass.Threadlogger(threadId, ex.ToString());
-                    MainClass.errorlogger(ex, true);
+                    MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                 }
             }
             if (MainClass.currentConfig.useAccounts == 1)
@@ -1151,7 +1231,7 @@ namespace maincore
                 catch (Exception ex)
                 {
                     MainClass.Threadlogger(threadId, ex.ToString());
-                    MainClass.errorlogger(ex, true);
+                    MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
 
                 }
             }
@@ -1166,7 +1246,21 @@ namespace maincore
             if (decide == 0)
             {
                 MainClass.Threadlogger(threadId, "direct play type");
-                driver.Navigate().GoToUrl(url);
+                try
+                {
+                    driver.Navigate().GoToUrl(url);
+                }
+                catch (OpenQA.Selenium.WebDriverException ex)
+                {
+                    if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                    }
+                }
                 Thread.Sleep(rnd.Next(2000, 4000));
 
             }
@@ -1174,12 +1268,13 @@ namespace maincore
             else if (decide == 1)
             {
                 MainClass.Threadlogger(threadId, $"google search play type \n redirected to google");
-                driver.Navigate().GoToUrl(@"https://www.google.com/");
-                Thread.Sleep(3000);
+                
                 while (true)
                 {
                     try
                     {
+                        driver.Navigate().GoToUrl(@"https://www.google.com/");
+                        Thread.Sleep(3000);
                         MainClass.Threadlogger(threadId, "searching video url");
                         IWebElement searchtext = wait4.Until(c => c.FindElement(By.XPath("//input[@type=\"text\"]")));
                         searchtext.SendKeys(url);
@@ -1189,23 +1284,28 @@ namespace maincore
 
                         break;
                     }
+                    
                     catch (WebDriverTimeoutException ex)
                     {
                         MainClass.Threadlogger(threadId, ex.ToString());
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
-                    catch (WebDriverException ex)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        MainClass.Threadlogger(threadId, ex.ToString());
-                        MainClass.errorlogger(ex, true);
-                        driver.Quit();
-                        return;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
                         MainClass.Threadlogger(threadId, ex.ToString());
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 Thread.Sleep(rnd.Next(1000, 2000));
@@ -1222,12 +1322,23 @@ namespace maincore
                     catch (WebDriverTimeoutException ex)
                     {
                         MainClass.Threadlogger(threadId, ex.ToString());
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
+                    }
+                    catch (OpenQA.Selenium.WebDriverException ex)
+                    {
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
 
@@ -1248,25 +1359,42 @@ namespace maincore
                         search.SendKeys(Keys.Enter);
                         break;
                     }
-                    catch (WebDriverTimeoutException ex)
+                    catch (OpenQA.Selenium.ElementNotInteractableException ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        IJavaScriptExecutor javaScriptExecuto = (IJavaScriptExecutor)driver;
+                        javaScriptExecuto.ExecuteScript("document.querySelector(\"#content > div.body.style-scope.ytd-consent-bump-v2-lightbox > div.footer.style-scope.ytd-consent-bump-v2-lightbox > div.buttons.style-scope.ytd-consent-bump-v2-lightbox > ytd-button-renderer:nth-child(2) > a\").click()");
+                        MainClass.Threadlogger(threadId, "element wasnt interactable while seachring tried by passing consent popup");
                         continue;
+                    }catch (WebDriverTimeoutException ex)
+                    {
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        continue;
+                    }
+                    catch (OpenQA.Selenium.WebDriverException ex)
+                    {
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 IJavaScriptExecutor javaScriptExecutor = (IJavaScriptExecutor)driver;
                 string[] urlparts = url.Split('/');
                 MainClass.Threadlogger(threadId, $"altering html in browser");
-
                 while (true)
                 {
                     try
                     {
                         Thread.Sleep(rnd.Next(2000, 5000));
+                        
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint style-scope ytd-video-renderer')[0].href = '/" + urlparts[urlparts.Length - 1] + "';");
                         Thread.Sleep(500);
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint style-scope ytd-video-renderer')[0].setAttribute('onclick', `window.location.assign('/" + urlparts[urlparts.Length - 1] + "')`);");
@@ -1276,12 +1404,23 @@ namespace maincore
                     }
                     catch (WebDriverTimeoutException ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
+                    }
+                    catch (OpenQA.Selenium.WebDriverException ex)
+                    {
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 MainClass.Threadlogger(threadId, "video clicked");
@@ -1298,7 +1437,7 @@ namespace maincore
                     try
                     {
                         string[] urlparts = url.Split('/');
-                        Thread.Sleep(1000);
+                        Thread.Sleep(rnd.Next(3000,8000));
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].href = '/" + urlparts[urlparts.Length - 1] + "';");
                         Thread.Sleep(500);
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].setAttribute('onclick', `window.location.assign('/" + urlparts[urlparts.Length - 1] + "')`);");
@@ -1306,14 +1445,20 @@ namespace maincore
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].click();");
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
                 }
@@ -1331,17 +1476,25 @@ namespace maincore
                         driver.Navigate().GoToUrl("https://www.youtube.com/feed/explore");
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
+
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 MainClass.Threadlogger(threadId, "altering html");
+                Thread.Sleep(4000);
                 while (true)
                 {
                     try
@@ -1355,14 +1508,21 @@ namespace maincore
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].click();");
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            Thread.Sleep(5000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
                 }
@@ -1381,14 +1541,21 @@ namespace maincore
                         driver.Navigate().GoToUrl("https://www.youtube.com/feed/trending");
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            Thread.Sleep(5000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 MainClass.Threadlogger(threadId, "Altering html");
@@ -1407,12 +1574,18 @@ namespace maincore
                     }
                     catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        MainClass.errorlogger(ex, true);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
                 }
@@ -1430,14 +1603,21 @@ namespace maincore
                         driver.Navigate().GoToUrl("https://www.youtube.com/gaming");
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            Thread.Sleep(5000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 MainClass.Threadlogger(threadId, "altering html");
@@ -1455,14 +1635,21 @@ namespace maincore
 
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            Thread.Sleep(5000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
                 }
@@ -1484,14 +1671,20 @@ namespace maincore
 
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 MainClass.Threadlogger(threadId, "redirected to music page\n altering html");
@@ -1509,14 +1702,21 @@ namespace maincore
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].click();");
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            Thread.Sleep(5000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
                 }
@@ -1534,17 +1734,23 @@ namespace maincore
                         driver.Navigate().GoToUrl(MainClass.currentConfig.suggestionUrls[rnd.Next(0, MainClass.currentConfig.suggestionUrls.Length - 1)]);
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
-                Thread.Sleep(6000);
+                Thread.Sleep(rnd.Next(3000,6000));
                 MainClass.Threadlogger(threadId, "editng html");
                 while (true)
                 {
@@ -1556,19 +1762,26 @@ namespace maincore
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].href = '/" + urlparts[urlparts.Length - 1] + "';");
                         Thread.Sleep(500);
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].setAttribute('onclick', `window.location.assign('/" + urlparts[urlparts.Length - 1] + "')`);");
-                        Thread.Sleep(500);
+                        Thread.Sleep(1000);
                         javaScriptExecutor.ExecuteScript("document.getElementsByClassName('yt-simple-endpoint inline-block style-scope ytd-thumbnail')[0].click();");
                         Thread.Sleep(500);
                         break;
                     }
-                    catch (OpenQA.Selenium.WebDriverException)
+                    catch (OpenQA.Selenium.WebDriverException ex)
                     {
-                        Thread.Sleep(6000);
-                        continue;
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            Thread.Sleep(5000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
                     }
                 }
@@ -1595,12 +1808,23 @@ namespace maincore
                     }
                     catch (WebDriverTimeoutException ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
+                    }
+                    catch (OpenQA.Selenium.WebDriverException ex)
+                    {
+                        if(ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
 
@@ -1615,21 +1839,39 @@ namespace maincore
                     }
                     catch (WebDriverTimeoutException ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                         continue;
+                    }
+                    catch (OpenQA.Selenium.WebDriverException ex)
+                    {
+                        if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                        }
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
                     }
                 }
                 MainClass.Threadlogger(threadId, "video clicked");
             }
             MainClass.Threadlogger(threadId, "checking if browser url is video url");
-            if (!(driver.Url == url))
+            while (true)
             {
-                MainClass.Threadlogger(threadId, $"different url detected\ndriver current:- {driver.Url}");
-                driver.Navigate().GoToUrl(url);
+                if (!(driver.Url == url))
+                {
+                    MainClass.Threadlogger(threadId, $"different url detected\ndriver current:- {driver.Url}");
+                    driver.Navigate().GoToUrl(url);
+                }
+                else
+                {
+                    break;
+                }
             }
             Thread.Sleep(rnd.Next(5000, 9000));
             advertdetect(driver, threadId);
@@ -1658,7 +1900,6 @@ namespace maincore
                 IWebElement p = driver.FindElement(By.XPath("//p"));
                 if (p.Text == "Sorry for the interruption. We have been receiving a large volume of requests from your network.") { }
                 driver.Quit();
-                Thread.CurrentThread.Interrupt();
                 return;
             }
             var totaltime = wait4.Until(c => c.FindElement(By.ClassName("ytp-time-duration")));
@@ -1667,6 +1908,10 @@ namespace maincore
             currenttimesec = TimeSpan.Parse("00:" + currenttime.Text).TotalSeconds;
             js.ExecuteScript("document.querySelector(\"#movie_player > div.ytp-chrome-bottom > div.ytp-chrome-controls > div.ytp-left-controls > button\").click()");
             MainClass.Threadlogger(threadId, $"total video duration : {totaltimesec}\ncurrent playtime : {currenttimesec}");
+            if (Convert.ToInt32(currenttimesec) == 0)
+            {
+                driver.Navigate().Refresh();
+            };
             int playTime = rnd.Next(MainClass.currentConfig.minPlaytime, MainClass.currentConfig.maxPlaytime);
             if (playTime < currenttimesec)
             {
@@ -1694,7 +1939,7 @@ namespace maincore
                 {
                     wait = new WebDriverWait(driver, TimeSpan.FromSeconds(3));
                 }
-                IWebElement checkAdNumber;
+                IWebElement checkAdNumber = null;
                 try
                 {
                     checkAdNumber = wait.Until(c =>
@@ -1709,6 +1954,17 @@ namespace maincore
                             adscount--;
                             return null;
                         }
+                        catch (OpenQA.Selenium.WebDriverException ex)
+                        {
+                            if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                            {
+                                return null;
+                            }
+                            else
+                            {
+                                MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                            }
+                        }
                         return res;
                     });
                 }
@@ -1716,6 +1972,14 @@ namespace maincore
                 {
                     MainClass.Threadlogger(threadId, "none Advertisement detected (timed out detecting advert)");
                     return;
+                }
+                catch (OpenQA.Selenium.WebDriverException ex)
+                {
+                    if (ex.Message.ToLowerInvariant().Contains("chrome not reachable"))
+                    {
+                        return;
+                    }
+
                 }
                 if (checkAdNumber == null)
                 {
@@ -1868,13 +2132,13 @@ begin in 1")
                     {
                         try
                         {
-                            MainClass.Threadlogger(threadId, $"Skip button says \"{skipbuttontxt}\"");
+                            MainClass.Threadlogger(threadId, $"Skip button says from else \"{skipbuttontxt}\"");
                             Thread.Sleep(Convert.ToInt32(skipbuttontxt) * 1000);
                         }
                         catch (Exception ex)
                         {
-                            MainClass.errorlogger(ex, true);
-                            Thread.Sleep(10000);
+                            MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
+                            
                         }
                     }
                     try
@@ -1893,7 +2157,7 @@ begin in 1")
                     }
                     catch (Exception ex)
                     {
-                        MainClass.errorlogger(ex, true);
+                        MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
 
                     }
                 }
@@ -1903,7 +2167,7 @@ begin in 1")
                 }
                 catch (Exception ex)
                 {
-                    MainClass.errorlogger(ex, true);
+                    MainClass.errorlogg(ex, true);MainClass.Threadlogger(threadId, ex.ToString());
 
                 }
                 adscount--;
@@ -1922,7 +2186,8 @@ begin in 1")
             }
             catch (Exception ex)
             {
-                MainClass.errorlogger(ex, true);
+                MainClass.errorlogg(ex, true);
+                
             }
         }
         public static void subscribeVideo(IWebDriver driver)
@@ -1942,7 +2207,7 @@ begin in 1")
             }
             catch (Exception ex)
             {
-                MainClass.errorlogger(ex, true);
+                MainClass.errorlogg(ex, true);
             }
         }
         public static void setCookies(IWebDriver driver)
