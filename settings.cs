@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace maincore
+
+namespace Youtubebot
 {
     class Settings
     {
@@ -14,7 +10,7 @@ namespace maincore
         public static string Secret = "RMmBefxxUFMnHUedChMXObYBPc6LGZmX8Ec";
         public static string PremiumAPIKey = "293162872263434855";
         public static string Version = "1.0";
-        public static string HWID()
+        public static string Hwid()
         {
             return WindowsIdentity.GetCurrent().User.Value;
         }
